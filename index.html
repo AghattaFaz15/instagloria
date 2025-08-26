@@ -1,53 +1,43 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aghatta XV ✨</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aghatta XV</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body { background: radial-gradient(1200px 500px at 10% 10%, rgba(255,255,255,.03), transparent), linear-gradient(180deg, #0b3b8f 0%, #06213f 100%); color:#fff; font-family:sans-serif;}
+.gold{color:#D4AF37;}
+.card{backdrop-filter: blur(8px); background: rgba(10,14,30,.6); border-radius:1rem; padding:1rem; margin-bottom:1rem;}
+button{cursor:pointer;}
+</style>
 </head>
-<body>
-  <header>
-    <h1>Aghatta XV</h1>
-  </header>
+<body class="min-h-screen">
+<header class="sticky top-0 z-20 bg-slate-900/80 backdrop-blur border-b border-white/10 p-4 flex justify-between items-center">
+<h1 class="text-xl sm:text-2xl font-semibold">🕊️ Aghatta XV</h1>
+<nav class="flex gap-2">
+<button onclick="openUpload()" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm">Postar</button>
+<button onclick="openTimeline()" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm">Feed</button>
+</nav>
+</header>
 
-  <main>
-    <!-- Formulário de post -->
-    <section id="post-section">
-      <h2>Compartilhe sua memória ✨</h2>
-      <form id="postForm">
-        <input type="text" id="authorInput" placeholder="Seu nome" required>
-        <textarea id="captionInput" placeholder="Deixe uma frase carinhosa…"></textarea>
-        <input type="file" id="fileInput" accept="image/*,video/*" required>
-        <button type="submit">Postar</button>
-        <span id="uploadStatus"></span>
-      </form>
-      <div id="preview">Prévia: sem mídia</div>
-    </section>
+<main class="max-w-5xl mx-auto px-4 py-6 space-y-6">
+<div class="card text-center">
+<h2 class="text-lg font-semibold mb-2">Bem-vindos ao álbum da Aghatta ✨</h2>
+<p>Use os botões acima para postar suas fotos e vídeos ou conferir o feed em tempo real.</p>
+</div>
 
-    <!-- Feed -->
-    <section id="feed-section">
-      <h2>Feed ao vivo 📸</h2>
-      <div id="feed"></div>
-      <div id="emptyFeed">Seja o(a) primeiro(a) a postar ✨</div>
-    </section>
+<div class="card text-center">
+<h2 class="text-lg font-semibold mb-2">Recados do coração 💛</h2>
+<p>Compartilhe mensagens e amor para Aghatta XV.</p>
+</div>
+</main>
 
-    <!-- Recados admin -->
-    <section id="notice-section">
-      <h2>Recados do coração 💛</h2>
-      <form id="noticeForm">
-        <input type="text" id="noticeAuthor" placeholder="Quem está anunciando?">
-        <input type="text" id="noticeText" placeholder="Escreva um recado para todos…">
-        <button type="submit">Publicar</button>
-      </form>
-      <ul id="noticesList"></ul>
-    </section>
-  </main>
+<footer class="text-center text-xs opacity-60 py-10">Feito com carinho para a Aghatta • <span class="gold">azul & dourado</span></footer>
 
-  <footer>
-    Feito com carinho para a Aghatta • <span class="gold">azul & dourado</span>
-  </footer>
-
-  <script type="module" src="firebase.js"></script>
+<script>
+function openUpload(){ window.open('upload.html','_blank'); }
+function openTimeline(){ window.open('timeline.html','_blank'); }
+</script>
 </body>
 </html>
