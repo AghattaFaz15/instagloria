@@ -6,38 +6,205 @@
 <title>Aghatta XV</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-body { background: radial-gradient(1200px 500px at 10% 10%, rgba(255,255,255,.03), transparent), linear-gradient(180deg, #0b3b8f 0%, #06213f 100%); color:#fff; font-family:sans-serif;}
+body {
+  background: radial-gradient(1200px 500px at 10% 10%, rgba(255,255,255,.03), transparent),
+              linear-gradient(180deg, #0b3b8f 0%, #06213f 100%);
+  color:#fff;
+  font-family:sans-serif;
+}
 .gold{color:#D4AF37;}
 .card{backdrop-filter: blur(8px); background: rgba(10,14,30,.6); border-radius:1rem; padding:1rem; margin-bottom:1rem;}
 button{cursor:pointer;}
+textarea,input{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.1); border-radius:0.75rem; padding:0.5rem; color:#fff; width:100%;}
 </style>
 </head>
 <body class="min-h-screen">
 <header class="sticky top-0 z-20 bg-slate-900/80 backdrop-blur border-b border-white/10 p-4 flex justify-between items-center">
 <h1 class="text-xl sm:text-2xl font-semibold">🕊️ Aghatta XV</h1>
-<nav class="flex gap-2">
-<button onclick="openUpload()" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm">Postar</button>
-<button onclick="openTimeline()" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm">Feed</button>
-</nav>
 </header>
 
-<main class="max-w-5xl mx-auto px-4 py-6 space-y-6">
-<div class="card text-center">
-<h2 class="text-lg font-semibold mb-2">Bem-vindos ao álbum da Aghatta ✨</h2>
-<p>Use os botões acima para postar suas fotos e vídeos ou conferir o feed em tempo real.</p>
+<main class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+
+<!-- Formulário de Post -->
+<div class="card">
+<h2 class="text-lg font-semibold mb-2">Compartilhe sua memória ✨</h2>
+<form id="postForm" class="space-y-3">
+<input id="authorInput" type="text" placeholder="Seu nome" required />
+<textarea id="captionInput" placeholder="Legenda (opcional)"></textarea>
+<input id="fileInput" type="file" accept="image/*,video/*" required />
+<button type="submit" id="postBtn" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl">Postar</button>
+<div id="uploadStatus" class="text-sm mt-1"></div>
+<div id="preview" class="mt-2 aspect-video w-full bg-black/20 rounded-md grid place-items-center text-sm">Sem mídia</div>
+</form>
 </div>
 
-<div class="card text-center">
-<h2 class="text-lg font-semibold mb-2">Recados do coração 💛</h2>
-<p>Compartilhe mensagens e amor para Aghatta XV.</p>
-</div>
-</main>
+<!-- Feed -->
+<div id="feed" class="space-y-4"></div>
+<div id="emptyFeed" class="text-center opacity-70 mt-6 hidden">Seja o(a) primeiro(a) a postar ✨</div>
 
-<footer class="text-center text-xs opacity-60 py-10">Feito com carinho para a Aghatta • <span class="gold">azul & dourado</span></footer>
+<footer class="text-center text-xs opacity-60 py-10">
+Feito com carinho para a Aghatta • <span class="gold">azul & dourado</span>
+</footer>
 
-<script>
-function openUpload(){ window.open('upload.html','_blank'); }
-function openTimeline(){ window.open('timeline.html','_blank'); }
+<!-- Firebase SDKs -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+import { getDatabase, ref, push, set, onValue, query, limitToLast } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
+import { getStorage, ref as sref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js';
+
+// --- CONFIGURE AQUI SEU FIREBASE ---
+const firebaseConfig = {
+  apiKey: "AIzaSyCWq5k87voGQHlRPquvI1P5W1eme32E5f4",
+  authDomain: "livro-aghatta.firebaseapp.com",
+  databaseURL: "https://livro-aghatta-default-rtdb.firebaseio.com",
+  projectId: "livro-aghatta",
+  storageBucket: "livro-aghatta.firebasestorage.app",
+  messagingSenderId: "491625108244",
+  appId: "1:491625108244:web:3afdfda239f9d0904ca801"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const storage = getStorage(app);
+
+// Utilidade UID
+const uid = (() => {
+  const k = 'aghatta_uid';
+  let v = localStorage.getItem(k);
+  if (!v) { v = crypto.randomUUID(); localStorage.setItem(k,v); }
+  return v;
+})();
+
+// Preview da mídia
+const fileInput = document.getElementById('fileInput');
+const preview = document.getElementById('preview');
+fileInput.addEventListener('change', ()=>{
+  const f = fileInput.files?.[0];
+  if(!f){ preview.textContent='Sem mídia'; return; }
+  const url = URL.createObjectURL(f);
+  const isVideo = f.type.startsWith('video/');
+  preview.innerHTML = isVideo
+    ? `<video src="${url}" class="w-full h-full object-cover rounded-md" controls></video>`
+    : `<img src="${url}" class="w-full h-full object-cover rounded-md" alt="prévia"/>`;
+});
+
+// Formulário Post
+const postForm = document.getElementById('postForm');
+const authorInput = document.getElementById('authorInput');
+const captionInput = document.getElementById('captionInput');
+const postBtn = document.getElementById('postBtn');
+const uploadStatus = document.getElementById('uploadStatus');
+const feed = document.getElementById('feed');
+const emptyFeed = document.getElementById('emptyFeed');
+
+function escapeHtml(str=''){return str.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));}
+
+function linkify(text=''){return text.replace(/(https?:\/\/[^\s]+)/g, '<a class="underline" href="$1" target="_blank" rel="noopener">$1</a>');}
+
+postForm.addEventListener('submit', async e=>{
+  e.preventDefault();
+  const file = fileInput.files?.[0];
+  const author = authorInput.value.trim();
+  const caption = captionInput.value.trim();
+  if(!file || !author) return;
+  postBtn.disabled=true;
+  uploadStatus.textContent='Enviando…';
+  try{
+    const ext = file.name.split('.').pop()?.toLowerCase()||'bin';
+    const ts = Date.now();
+    const storagePath = `posts/${ts}_${uid}.${ext}`;
+    const storageRef = sref(storage, storagePath);
+    const task = uploadBytesResumable(storageRef,file,{contentType:file.type});
+    task.on('state_changed', snap=>{
+      const pct = Math.round((snap.bytesTransferred/snap.totalBytes)*100);
+      uploadStatus.textContent=`Enviando… ${pct}%`;
+    });
+    await task;
+    const url = await getDownloadURL(storageRef);
+    const isVideo = file.type.startsWith('video/');
+    const postRef = push(ref(db,'posts'));
+    await set(postRef,{id:postRef.key,author,url,caption,type:isVideo?'video':'image',likes:0,createdAt:Date.now()});
+    postForm.reset();
+    preview.textContent='Sem mídia';
+    uploadStatus.textContent='Publicado!';
+    setTimeout(()=>uploadStatus.textContent='',1500);
+  }catch(err){console.error(err); uploadStatus.textContent='Falhou. Tente novamente.';}
+  finally{postBtn.disabled=false;}
+});
+
+// Render Feed
+onValue(query(ref(db,'posts'),limitToLast(200)), snap=>{
+  const data = snap.val()||{};
+  const posts = Object.values(data).sort((a,b)=>b.createdAt-a.createdAt);
+  emptyFeed.classList.toggle('hidden',posts.length>0);
+  feed.innerHTML = posts.map(p=>{
+    const liked = localStorage.getItem('like_'+p.id)==='1';
+    const media = p.type==='video'
+      ? `<video src="${p.url}" class="w-full rounded-md" controls playsinline></video>`
+      : `<img src="${p.url}" alt="post" class="w-full rounded-md"/>`;
+    return `
+      <div class="card">
+        <div class="flex justify-between text-sm opacity-80 mb-1">
+          <div>👤 <strong>${escapeHtml(p.author)}</strong></div>
+          <div>${new Date(p.createdAt).toLocaleString('pt-BR')}</div>
+        </div>
+        ${media}
+        ${p.caption?`<p class="mt-1">${linkify(escapeHtml(p.caption))}</p>`:''}
+        <button data-like="${p.id}" class="mt-2 px-3 py-1.5 rounded-xl ${liked?'bg-pink-700':'bg-pink-600 hover:bg-pink-500'}">❤️ <span data-like-count="${p.id}">${p.likes||0}</span></button>
+        <div class="mt-2" id="comments_${p.id}"></div>
+        <form data-comment-form="${p.id}" class="mt-2 grid grid-cols-5 gap-2">
+          <input name="name" class="col-span-2" placeholder="Seu nome" required />
+          <input name="text" class="col-span-3" placeholder="Comente…" required />
+        </form>
+      </div>`;
+  }).join('');
+  attachPostHandlers(posts.map(p=>p.id));
+});
+
+function attachPostHandlers(ids){
+  ids.forEach(id=>{
+    const likeBtn = document.querySelector(`button[data-like="${id}"]`);
+    if(likeBtn&&!likeBtn.dataset.bound){
+      likeBtn.dataset.bound='1';
+      likeBtn.addEventListener('click', async ()=>{
+        if(localStorage.getItem('like_'+id)==='1') return;
+        const countEl = document.querySelector(`[data-like-count="${id}"]`);
+        countEl.textContent=String(Number(countEl.textContent||'0')+1);
+        localStorage.setItem('like_'+id,'1');
+        likeBtn.classList.remove('hover:bg-pink-500');
+        likeBtn.classList.add('bg-pink-700');
+        const postRef = ref(db,`posts/${id}`);
+        onValue(postRef, async s=>{
+          const v=s.val();
+          if(!v)return;
+          set(postRef,{...v,likes:(v.likes||0)+1});
+        },{onlyOnce:true});
+      });
+    }
+    const form = document.querySelector(`form[data-comment-form="${id}"]`);
+    if(form&&!form.dataset.bound){
+      form.dataset.bound='1';
+      form.addEventListener('submit',e=>e.preventDefault());
+      form.addEventListener('keydown', async e=>{
+        if(e.key==='Enter'){
+          e.preventDefault();
+          const name=form.elements.namedItem('name').value.trim();
+          const text=form.elements.namedItem('text').value.trim();
+          if(!name||!text)return;
+          const cRef = push(ref(db,`comments/${id}`));
+          await set(cRef,{id:cRef.key,name,text,createdAt:Date.now()});
+          form.reset();
+        }
+      });
+      onValue(ref(db,`comments/${id}`), snap=>{
+        const data = snap.val()||{};
+        const arr = Object.values(data).sort((a,b)=>a.createdAt-b.createdAt);
+        const box = document.getElementById(`comments_${id}`);
+        box.innerHTML = arr.map(c=>`<div class="text-sm"><span class="opacity-80">${escapeHtml(c.name)}</span>: <span>${linkify(escapeHtml(c.text))}</span> <span class="opacity-50 text-xs">• ${new Date(c.createdAt).toLocaleString('pt-BR')}</span></div>`).join('');
+      });
+    }
+  });
+}
 </script>
 </body>
 </html>
