@@ -25,20 +25,18 @@ textarea,input{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,2
 
 <main class="max-w-3xl mx-auto px-4 py-6 space-y-6">
 
-<!-- Formulário de Post -->
 <div class="card">
 <h2 class="text-lg font-semibold mb-2 gold">Compartilhe sua memória ✨</h2>
 <form id="postForm" class="space-y-3">
 <input id="authorInput" type="text" placeholder="Seu nome" required />
 <textarea id="captionInput" placeholder="Legenda (opcional)"></textarea>
 <input id="fileInput" type="file" accept="image/*,video/*" />
-<button type="submit" id="postBtn" class="bg-gold-600 hover:bg-gold-500 px-4 py-2 rounded-xl gold">Postar</button>
+<button type="submit" id="postBtn" class="bg-indigo-700 hover:bg-indigo-600 px-4 py-2 rounded-xl gold">Postar</button>
 <div id="uploadStatus" class="text-sm mt-1"></div>
 <div id="preview" class="mt-2 aspect-video w-full bg-black/20 rounded-md grid place-items-center text-sm">Sem mídia</div>
 </form>
 </div>
 
-<!-- Feed -->
 <div id="feed" class="space-y-4"></div>
 <div id="emptyFeed" class="text-center opacity-70 mt-6 hidden">Seja o(a) primeiro(a) a postar ✨</div>
 
@@ -46,13 +44,11 @@ textarea,input{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,2
 Feito com carinho para a Aghatta • <span class="gold">azul & dourado</span>
 </footer>
 
-<!-- Firebase SDKs -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
 import { getDatabase, ref, push, set, onValue, query, limitToLast } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
-import { getStorage, ref as sref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js';
 
-// --- SEU FIREBASE ---
+// --- Firebase Config ---
 const firebaseConfig = {
   apiKey: "AIzaSyCWq5k87voGQHlRPquvI1P5W1eme32E5f4",
   authDomain: "livro-aghatta.firebaseapp.com",
@@ -62,10 +58,12 @@ const firebaseConfig = {
   messagingSenderId: "491625108244",
   appId: "1:491625108244:web:3afdfda239f9d0904ca801"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const storage = getStorage(app);
+
+// --- Cloudinary Config ---
+const CLOUD_NAME = "dxobnhynf"; // seu cloud name
+const UPLOAD_PRESET = "Default"; // seu upload preset
 
 // UID local
 const uid = (() => {
@@ -98,40 +96,51 @@ const feed = document.getElementById('feed');
 const emptyFeed = document.getElementById('emptyFeed');
 
 function escapeHtml(str=''){return str.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));}
-function linkify(text=''){return text.replace(/(https?:\/\/[^\s]+)/g, '<a class="underline" href="$1" target="_blank" rel="noopener">$1</a>');}
 
 postForm.addEventListener('submit', async e=>{
   e.preventDefault();
-  const file = fileInput.files?.[0];
   const author = authorInput.value.trim();
   const caption = captionInput.value.trim();
   if(!author) return;
+  const file = fileInput.files?.[0];
   postBtn.disabled=true;
   uploadStatus.textContent='Enviando…';
+
   try{
-    let url=null, type='text';
+    let mediaUrl=null, type='text';
     if(file){
-      const ext = file.name.split('.').pop()?.toLowerCase()||'bin';
-      const ts = Date.now();
-      const storagePath = `posts/${ts}_${uid}.${ext}`;
-      const storageRef = sref(storage, storagePath);
-      const task = uploadBytesResumable(storageRef,file,{contentType:file.type});
-      task.on('state_changed', snap=>{
-        const pct = Math.round((snap.bytesTransferred/snap.totalBytes)*100);
-        uploadStatus.textContent=`Enviando… ${pct}%`;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/upload`, {
+        method:'POST',
+        body: formData
       });
-      await task;
-      url = await getDownloadURL(storageRef);
+      const data = await res.json();
+      mediaUrl = data.secure_url;
       type = file.type.startsWith('video/')?'video':'image';
     }
+
     const postRef = push(ref(db,'posts'));
-    await set(postRef,{id:postRef.key,author,caption,type,url,likes:0,createdAt:Date.now()});
+    await set(postRef,{
+      id: postRef.key,
+      author,
+      caption,
+      type,
+      url: mediaUrl || null,
+      createdAt: Date.now()
+    });
+
     postForm.reset();
     preview.textContent='Sem mídia';
     uploadStatus.textContent='Publicado!';
     setTimeout(()=>uploadStatus.textContent='',1500);
-  }catch(err){console.error(err); uploadStatus.textContent='Falhou. Tente novamente.';}
-  finally{postBtn.disabled=false;}
+  }catch(err){
+    console.error(err);
+    uploadStatus.textContent='Falhou. Tente novamente.';
+  }finally{
+    postBtn.disabled=false;
+  }
 });
 
 // Carregar feed
@@ -149,7 +158,7 @@ onValue(query(ref(db,'posts'),limitToLast(200)), snap=>{
         <div>${new Date(p.createdAt).toLocaleString('pt-BR')}</div>
       </div>
       ${media}
-      ${p.caption?`<p class="mt-1">${linkify(escapeHtml(p.caption))}</p>`:''}
+      ${p.caption?`<p class="mt-1">${escapeHtml(p.caption)}</p>`:''}
     </div>`;
   }).join('');
 });
