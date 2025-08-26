@@ -31,7 +31,7 @@ textarea,input{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,2
 <form id="postForm" class="space-y-3">
 <input id="authorInput" type="text" placeholder="Seu nome" required />
 <textarea id="captionInput" placeholder="Legenda (opcional)"></textarea>
-<input id="fileInput" type="file" accept="image/*,video/*" required />
+<input id="fileInput" type="file" accept="image/*,video/*" />
 <button type="submit" id="postBtn" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl gold">Postar</button>
 <div id="uploadStatus" class="text-sm mt-1"></div>
 <div id="preview" class="mt-2 aspect-video w-full bg-black/20 rounded-md grid place-items-center text-sm">Sem mídia</div>
@@ -46,11 +46,12 @@ textarea,input{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,2
 Feito com carinho para a Aghatta • <span class="gold">azul & dourado</span>
 </footer>
 
+<!-- Firebase + Cloudinary -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
 import { getDatabase, ref, push, set, onValue, query, limitToLast } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
 
-// --- CONFIGURAÇÕES FIREBASE ---
+// --- FIREBASE CONFIG ---
 const firebaseConfig = {
   apiKey: "AIzaSyCWq5k87voGQHlRPquvI1P5W1eme32E5f4",
   authDomain: "livro-aghatta.firebaseapp.com",
@@ -63,7 +64,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- CONFIGURAÇÕES CLOUDINARY ---
+// --- CLOUDINARY CONFIG ---
 const cloudName = 'dxobnhynf';
 const uploadPreset = 'Default';
 
@@ -75,7 +76,7 @@ const uid = (() => {
   return v;
 })();
 
-// Preview
+// --- Preview ---
 const fileInput = document.getElementById('fileInput');
 const preview = document.getElementById('preview');
 fileInput.addEventListener('change', ()=>{
@@ -88,11 +89,7 @@ fileInput.addEventListener('change', ()=>{
     : `<img src="${url}" class="w-full h-full object-cover rounded-md" alt="prévia"/>`;
 });
 
-// Funções auxiliares
-function escapeHtml(str=''){return str.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));}
-function linkify(text=''){return text.replace(/(https?:\/\/[^\s]+)/g, '<a class="underline" href="$1" target="_blank" rel="noopener">$1</a>');}
-
-// Postar
+// --- Postar ---
 const postForm = document.getElementById('postForm');
 const authorInput = document.getElementById('authorInput');
 const captionInput = document.getElementById('captionInput');
@@ -100,6 +97,9 @@ const postBtn = document.getElementById('postBtn');
 const uploadStatus = document.getElementById('uploadStatus');
 const feed = document.getElementById('feed');
 const emptyFeed = document.getElementById('emptyFeed');
+
+function escapeHtml(str=''){return str.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));}
+function linkify(text=''){return text.replace(/(https?:\/\/[^\s]+)/g, '<a class="underline" href="$1" target="_blank" rel="noopener">$1</a>');}
 
 postForm.addEventListener('submit', async e=>{
   e.preventDefault();
@@ -131,7 +131,7 @@ postForm.addEventListener('submit', async e=>{
   finally{postBtn.disabled=false;}
 });
 
-// Carregar feed em tempo real
+// --- Carregar feed ---
 onValue(query(ref(db,'posts'),limitToLast(200)), snap=>{
   const data = snap.val()||{};
   const posts = Object.values(data).sort((a,b)=>b.createdAt-a.createdAt);
