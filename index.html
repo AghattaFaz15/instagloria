@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aghatta XV - Timeline</title>
+<title>Aghatta XV</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
 body {
@@ -16,11 +16,9 @@ body {
 .card{backdrop-filter: blur(8px); background: rgba(10,14,30,.6); border-radius:1rem; padding:1rem; margin-bottom:1rem;}
 button{cursor:pointer;}
 textarea,input{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.1); border-radius:0.75rem; padding:0.5rem; color:#fff; width:100%;}
-a{color:#D4AF37;}
 </style>
 </head>
 <body class="min-h-screen">
-
 <header class="sticky top-0 z-20 bg-slate-900/80 backdrop-blur border-b border-white/10 p-4 flex justify-between items-center">
 <h1 class="text-xl sm:text-2xl font-semibold gold">🕊️ Aghatta XV</h1>
 </header>
@@ -48,7 +46,25 @@ a{color:#D4AF37;}
 Feito com carinho para a Aghatta • <span class="gold">azul & dourado</span>
 </footer>
 
-<script>
+<!-- Firebase + Cloudinary -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+import { getDatabase, ref, push, set, onValue, query, limitToLast } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
+
+// --- SEU FIREBASE ---
+const firebaseConfig = {
+  apiKey: "AIzaSyCWq5k87voGQHlRPquvI1P5W1eme32E5f4",
+  authDomain: "livro-aghatta.firebaseapp.com",
+  databaseURL: "https://livro-aghatta-default-rtdb.firebaseio.com",
+  projectId: "livro-aghatta",
+  storageBucket: "livro-aghatta.appspot.com",
+  messagingSenderId: "491625108244",
+  appId: "1:491625108244:web:3afdfda239f9d0904ca801"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
 // UID local
 const uid = (() => {
   const k = 'aghatta_uid';
@@ -57,87 +73,9 @@ const uid = (() => {
   return v;
 })();
 
-const CLOUD_NAME = "dxobnhynf"; // seu cloudinary
-const UPLOAD_PRESET = "Default"; // preset unsigned
-
-let posts = JSON.parse(localStorage.getItem('posts')||'[]');
-
+// Preview
 const fileInput = document.getElementById('fileInput');
 const preview = document.getElementById('preview');
-const postForm = document.getElementById('postForm');
-const authorInput = document.getElementById('authorInput');
-const captionInput = document.getElementById('captionInput');
-const postBtn = document.getElementById('postBtn');
-const uploadStatus = document.getElementById('uploadStatus');
-const feed = document.getElementById('feed');
-const emptyFeed = document.getElementById('emptyFeed');
-
-function escapeHtml(str=''){return str.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));}
-function linkify(text=''){return text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');}
-
-function renderFeed(){
-  emptyFeed.classList.toggle('hidden', posts.length>0);
-  feed.innerHTML = posts.slice().reverse().map(p=>{
-    let media='';
-    if(p.type==='image') media=`<img src="${p.url}" class="w-full rounded-md"/>`;
-    else if(p.type==='video') media=`<video src="${p.url}" class="w-full rounded-md" controls playsinline></video>`;
-    return `<div class="card">
-      <div class="flex justify-between text-sm opacity-80 mb-1">
-        <div>👤 <strong>${escapeHtml(p.author)}</strong></div>
-        <div>${new Date(p.createdAt).toLocaleString('pt-BR')}</div>
-      </div>
-      ${media}
-      ${p.caption?`<p class="mt-1">${linkify(escapeHtml(p.caption))}</p>`:''}
-      <button data-like="${p.id}" class="mt-2 px-3 py-1.5 rounded-xl ${localStorage.getItem('like_'+p.id)?'bg-pink-700':'bg-pink-600 hover:bg-pink-500'}">❤️ <span data-like-count="${p.id}">${p.likes||0}</span></button>
-      <div class="mt-2" id="comments_${p.id}"></div>
-      <form data-comment-form="${p.id}" class="mt-2 grid grid-cols-5 gap-2">
-        <input name="name" class="col-span-2" placeholder="Seu nome" required />
-        <input name="text" class="col-span-3" placeholder="Comente…" required />
-      </form>
-    </div>`;
-  }).join('');
-  attachHandlers();
-}
-
-function attachHandlers(){
-  posts.forEach(p=>{
-    const likeBtn = document.querySelector(`button[data-like="${p.id}"]`);
-    if(likeBtn && !likeBtn.dataset.bound){
-      likeBtn.dataset.bound='1';
-      likeBtn.addEventListener('click', ()=>{
-        if(localStorage.getItem('like_'+p.id)) return;
-        p.likes=(p.likes||0)+1;
-        localStorage.setItem('like_'+p.id,'1');
-        localStorage.setItem('posts',JSON.stringify(posts));
-        renderFeed();
-      });
-    }
-    const form = document.querySelector(`form[data-comment-form="${p.id}"]`);
-    if(form && !form.dataset.bound){
-      form.dataset.bound='1';
-      form.addEventListener('submit', e=>e.preventDefault());
-      form.addEventListener('keydown', e=>{
-        if(e.key==='Enter'){
-          e.preventDefault();
-          const name=form.elements.namedItem('name').value.trim();
-          const text=form.elements.namedItem('text').value.trim();
-          if(!name||!text) return;
-          if(!p.comments) p.comments=[];
-          p.comments.push({name,text,createdAt:Date.now()});
-          localStorage.setItem('posts',JSON.stringify(posts));
-          form.reset();
-          renderFeed();
-        }
-      });
-      if(p.comments){
-        const box = document.getElementById(`comments_${p.id}`);
-        box.innerHTML = p.comments.map(c=>`<div class="text-sm"><span class="opacity-80">${escapeHtml(c.name)}</span>: <span>${escapeHtml(c.text)}</span> <span class="opacity-50 text-xs">• ${new Date(c.createdAt).toLocaleString('pt-BR')}</span></div>`).join('');
-      }
-    }
-  });
-}
-
-// Preview
 fileInput.addEventListener('change', ()=>{
   const f = fileInput.files?.[0];
   if(!f){ preview.textContent='Sem mídia'; return; }
@@ -148,7 +86,31 @@ fileInput.addEventListener('change', ()=>{
     : `<img src="${url}" class="w-full h-full object-cover rounded-md" alt="prévia"/>`;
 });
 
+// Cloudinary upload
+async function uploadToCloudinary(file){
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', 'Default'); // seu upload preset
+  const res = await fetch('https://api.cloudinary.com/v1_1/dxobnhynf/upload', {
+    method:'POST',
+    body:formData
+  });
+  const data = await res.json();
+  return data.secure_url;
+}
+
 // Postar
+const postForm = document.getElementById('postForm');
+const authorInput = document.getElementById('authorInput');
+const captionInput = document.getElementById('captionInput');
+const postBtn = document.getElementById('postBtn');
+const uploadStatus = document.getElementById('uploadStatus');
+const feed = document.getElementById('feed');
+const emptyFeed = document.getElementById('emptyFeed');
+
+function escapeHtml(str=''){return str.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));}
+function linkify(text=''){return text.replace(/(https?:\/\/[^\s]+)/g, '<a class="underline" href="$1" target="_blank" rel="noopener">$1</a>');}
+
 postForm.addEventListener('submit', async e=>{
   e.preventDefault();
   const file = fileInput.files?.[0];
@@ -160,31 +122,38 @@ postForm.addEventListener('submit', async e=>{
   try{
     let url=null, type='text';
     if(file){
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', UPLOAD_PRESET);
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/upload`,{
-        method:'POST',
-        body: formData
-      });
-      const data = await res.json();
-      url=data.secure_url;
-      type=file.type.startsWith('video/')?'video':'image';
+      url = await uploadToCloudinary(file);
+      type = file.type.startsWith('video/')?'video':'image';
     }
-    const post = {id:Date.now()+'_'+uid,author,caption,type,url,likes:0,comments:[],createdAt:Date.now()};
-    posts.push(post);
-    localStorage.setItem('posts',JSON.stringify(posts));
+    const postRef = push(ref(db,'posts'));
+    await set(postRef,{id:postRef.key,author,caption,type,url,likes:0,createdAt:Date.now()});
     postForm.reset();
     preview.textContent='Sem mídia';
     uploadStatus.textContent='Publicado!';
     setTimeout(()=>uploadStatus.textContent='',1500);
-    renderFeed();
   }catch(err){console.error(err); uploadStatus.textContent='Falhou. Tente novamente.';}
   finally{postBtn.disabled=false;}
 });
 
-// Inicial
-renderFeed();
+// Carregar feed
+onValue(query(ref(db,'posts'),limitToLast(200)), snap=>{
+  const data = snap.val()||{};
+  const posts = Object.values(data).sort((a,b)=>b.createdAt-a.createdAt);
+  emptyFeed.classList.toggle('hidden',posts.length>0);
+  feed.innerHTML = posts.map(p=>{
+    let media='';
+    if(p.type==='image') media=`<img src="${p.url}" class="w-full rounded-md"/>`;
+    else if(p.type==='video') media=`<video src="${p.url}" class="w-full rounded-md" controls playsinline></video>`;
+    return `<div class="card">
+      <div class="flex justify-between text-sm opacity-80 mb-1">
+        <div>👤 <strong>${escapeHtml(p.author)}</strong></div>
+        <div>${new Date(p.createdAt).toLocaleString('pt-BR')}</div>
+      </div>
+      ${media}
+      ${p.caption?`<p class="mt-1">${linkify(escapeHtml(p.caption))}</p>`:''}
+    </div>`;
+  }).join('');
+});
 </script>
 </body>
 </html>
