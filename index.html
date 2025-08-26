@@ -1,181 +1,199 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aghatta XV</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-body {
-  background: url("fundo.jpeg") no-repeat center center fixed;
-  background-size: cover;
-  color:#fff;
-  font-family:sans-serif;
-}
-.overlay {
-  background: radial-gradient(1200px 500px at 10% 10%, rgba(255,255,255,.04), transparent),
-              linear-gradient(180deg, rgba(11,59,143,.9) 0%, rgba(6,33,63,.95) 100%);
-}
-.gold{color:#D4AF37;}
-.card{backdrop-filter: blur(8px); background: rgba(10,14,30,.7); border-radius:1rem; padding:1rem; margin-bottom:1rem;}
-button{cursor:pointer;}
-textarea,input{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.1); border-radius:0.75rem; padding:0.5rem; color:#fff; width:100%;}
-</style>
-</head>
-<body class="min-h-screen overlay">
-<header class="sticky top-0 z-20 bg-slate-900/80 backdrop-blur border-b border-white/10 p-4 flex justify-between items-center">
-<h1 class="text-xl sm:text-2xl font-semibold">🕊️ Aghatta XV</h1>
-</header>
-
-<main class="max-w-3xl mx-auto px-4 py-6 space-y-6">
-
-<!-- Formulário de Post -->
-<div class="card">
-<h2 class="text-lg font-semibold mb-2">Compartilhe sua memória ✨</h2>
-<form id="postForm" class="space-y-3">
-<input id="authorInput" type="text" placeholder="Seu nome" required />
-<textarea id="captionInput" placeholder="Escreva uma mensagem ou legenda..."></textarea>
-<input id="fileInput" type="file" accept="image/*,video/*" />
-<button type="submit" id="postBtn" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl">Postar</button>
-<div id="uploadStatus" class="text-sm mt-1"></div>
-<div id="preview" class="mt-2 aspect-video w-full bg-black/20 rounded-md grid place-items-center text-sm">Sem mídia</div>
-</form>
-</div>
-
-<!-- Feed -->
-<div id="feed" class="space-y-4"></div>
-<div id="emptyFeed" class="text-center opacity-70 mt-6 hidden">Seja o(a) primeiro(a) a postar ✨</div>
-
-<footer class="text-center text-xs opacity-60 py-10">
-Feito com carinho para a Aghatta • <span class="gold">azul & dourado</span>
-</footer>
-
-<!-- Firebase SDKs -->
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
-import { getDatabase, ref, push, set, onValue, query, limitToLast } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
-import { getStorage, ref as sref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js';
-
-// --- CONFIG FIREBASE ---
-const firebaseConfig = {
-  apiKey: "AIzaSyCWq5k87voGQHlRPquvI1P5W1eme32E5f4",
-  authDomain: "livro-aghatta.firebaseapp.com",
-  databaseURL: "https://livro-aghatta-default-rtdb.firebaseio.com",
-  projectId: "livro-aghatta",
-  storageBucket: "livro-aghatta.appspot.com", 
-  messagingSenderId: "491625108244",
-  appId: "1:491625108244:web:3afdfda239f9d0904ca801"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const storage = getStorage(app);
-
-// UID
-const uid = (() => {
-  const k = 'aghatta_uid';
-  let v = localStorage.getItem(k);
-  if (!v) { v = crypto.randomUUID(); localStorage.setItem(k,v); }
-  return v;
-})();
-
-// Preview
-const fileInput = document.getElementById('fileInput');
-const preview = document.getElementById('preview');
-fileInput.addEventListener('change', ()=>{
-  const f = fileInput.files?.[0];
-  if(!f){ preview.textContent='Sem mídia'; return; }
-  const url = URL.createObjectURL(f);
-  preview.innerHTML = f.type.startsWith('video/')
-    ? `<video src="${url}" class="w-full h-full object-cover rounded-md" controls></video>`
-    : `<img src="${url}" class="w-full h-full object-cover rounded-md" alt="prévia"/>`;
-});
-
-// Formulário Post
-const postForm = document.getElementById('postForm');
-const authorInput = document.getElementById('authorInput');
-const captionInput = document.getElementById('captionInput');
-const postBtn = document.getElementById('postBtn');
-const uploadStatus = document.getElementById('uploadStatus');
-const feed = document.getElementById('feed');
-const emptyFeed = document.getElementById('emptyFeed');
-
-function escapeHtml(str=''){return str.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));}
-function linkify(text=''){return text.replace(/(https?:\/\/[^\s]+)/g, '<a class="underline" href="$1" target="_blank" rel="noopener">$1</a>');}
-
-postForm.addEventListener('submit', async e=>{
-  e.preventDefault();
-  const file = fileInput.files?.[0];
-  const author = authorInput.value.trim();
-  const caption = captionInput.value.trim();
-  if(!author && !caption) return;
-
-  postBtn.disabled=true;
-  uploadStatus.textContent='Publicando...';
-
-  try{
-    let url = null, type = "text";
-    if(file){
-      const ext = file.name.split('.').pop()?.toLowerCase()||'bin';
-      const ts = Date.now();
-      const storagePath = `posts/${ts}_${uid}.${ext}`;
-      const storageRef = sref(storage, storagePath);
-      const task = uploadBytesResumable(storageRef,file,{contentType:file.type});
-      task.on('state_changed', snap=>{
-        const pct = Math.round((snap.bytesTransferred/snap.totalBytes)*100);
-        uploadStatus.textContent=`Enviando mídia… ${pct}%`;
-      });
-      await task;
-      url = await getDownloadURL(storageRef);
-      type = file.type.startsWith('video/') ? 'video' : 'image';
+  <meta charset="UTF-8">
+  <title>Aghatta XV</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(180deg, #001f3f, #003366);
+      color: #fff;
+      margin: 0;
+      padding: 0;
     }
 
-    const postRef = push(ref(db,'posts'));
-    await set(postRef,{
-      id:postRef.key,
-      author,
-      caption,
-      url,
-      type,
-      likes:0,
-      createdAt:Date.now()
-    });
+    header {
+      background: #001f3f;
+      color: gold;
+      text-align: center;
+      padding: 20px;
+      font-size: 1.8em;
+      font-weight: bold;
+      border-bottom: 3px solid gold;
+    }
 
-    postForm.reset();
-    preview.textContent='Sem mídia';
-    uploadStatus.textContent='Publicado!';
-    setTimeout(()=>uploadStatus.textContent='',1500);
-  }catch(err){
-    console.error(err);
-    uploadStatus.textContent='Erro ao publicar';
-  } finally {
-    postBtn.disabled=false;
+    .post-box {
+      background: rgba(255, 255, 255, 0.1);
+      margin: 15px;
+      padding: 15px;
+      border-radius: 15px;
+      border: 2px solid gold;
+    }
+
+    .post-box input, .post-box textarea {
+      width: 100%;
+      margin: 8px 0;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid gold;
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+
+    .post-box button {
+      background: gold;
+      color: #001f3f;
+      font-weight: bold;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .timeline {
+      margin: 15px;
+    }
+
+    .card {
+      background: rgba(0,0,0,0.4);
+      border: 2px solid gold;
+      border-radius: 15px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+
+    .card h3 {
+      margin: 0;
+      color: gold;
+    }
+
+    .media {
+      margin-top: 10px;
+      max-height: 300px;
+      border-radius: 10px;
+      border: 1px solid gold;
+    }
+
+    .actions {
+      margin-top: 10px;
+    }
+
+    .actions button {
+      background: none;
+      border: none;
+      color: gold;
+      margin-right: 15px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .comment {
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #ccc;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  🌟 Aghatta XV 🌟
+</header>
+
+<section class="post-box">
+  <h3>Nova Postagem</h3>
+  <input type="text" id="nome" placeholder="Seu nome">
+  <textarea id="mensagem" placeholder="Escreva algo lindo..."></textarea>
+  <input type="file" id="midia">
+  <button onclick="postar()">Publicar</button>
+</section>
+
+<section class="timeline" id="timeline">
+  <!-- As postagens vão aparecer aqui -->
+</section>
+
+<script>
+  const cloudName = "dxobnhynf"; // seu Cloudinary
+  const uploadPreset = "Default"; // seu preset
+
+  let posts = [];
+
+  async function postar() {
+    const nome = document.getElementById("nome").value;
+    const mensagem = document.getElementById("mensagem").value;
+    const file = document.getElementById("midia").files[0];
+
+    if (!nome || !mensagem) {
+      alert("Preencha seu nome e mensagem!");
+      return;
+    }
+
+    let mediaUrl = "";
+    if (file) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", uploadPreset);
+
+      try {
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
+          method: "POST",
+          body: formData
+        });
+        const data = await response.json();
+        mediaUrl = data.secure_url;
+      } catch (err) {
+        alert("Erro ao enviar mídia!");
+        console.error(err);
+      }
+    }
+
+    const post = { nome, mensagem, mediaUrl, likes: 0, comentarios: [] };
+    posts.unshift(post);
+    renderTimeline();
+
+    document.getElementById("mensagem").value = "";
+    document.getElementById("midia").value = "";
   }
-});
 
-// Render Feed
-onValue(query(ref(db,'posts'),limitToLast(200)), snap=>{
-  const data = snap.val()||{};
-  const posts = Object.values(data).sort((a,b)=>b.createdAt-a.createdAt);
-  emptyFeed.classList.toggle('hidden',posts.length>0);
-  feed.innerHTML = posts.map(p=>{
-    const liked = localStorage.getItem('like_'+p.id)==='1';
-    let media = "";
-    if(p.type==="video") media = `<video src="${p.url}" class="w-full rounded-md" controls></video>`;
-    if(p.type==="image") media = `<img src="${p.url}" class="w-full rounded-md"/>`;
+  function renderTimeline() {
+    const timeline = document.getElementById("timeline");
+    timeline.innerHTML = "";
 
-    return `
-      <div class="card">
-        <div class="flex justify-between text-sm opacity-80 mb-1">
-          <div>👤 <strong>${escapeHtml(p.author||"Anônimo")}</strong></div>
-          <div>${new Date(p.createdAt).toLocaleString('pt-BR')}</div>
+    posts.forEach((p, i) => {
+      const card = document.createElement("div");
+      card.className = "card";
+
+      card.innerHTML = `
+        <h3>${p.nome}</h3>
+        <p>${p.mensagem}</p>
+        ${p.mediaUrl ? `<img src="${p.mediaUrl}" class="media">` : ""}
+        <div class="actions">
+          <button onclick="curtir(${i})">👍 Curtir (${p.likes})</button>
+          <button onclick="comentar(${i})">💬 Comentar</button>
         </div>
-        ${media}
-        ${p.caption?`<p class="mt-1">${linkify(escapeHtml(p.caption))}</p>`:''}
-        <button data-like="${p.id}" class="mt-2 px-3 py-1.5 rounded-xl ${liked?'bg-pink-700':'bg-pink-600 hover:bg-pink-500'}">❤️ <span data-like-count="${p.id}">${p.likes||0}</span></button>
-      </div>`;
-  }).join('');
-});
+        <div id="comentarios-${i}">
+          ${p.comentarios.map(c => `<div class="comment">💭 ${c}</div>`).join("")}
+        </div>
+      `;
+
+      timeline.appendChild(card);
+    });
+  }
+
+  function curtir(i) {
+    posts[i].likes++;
+    renderTimeline();
+  }
+
+  function comentar(i) {
+    const comentario = prompt("Digite seu comentário:");
+    if (comentario) {
+      posts[i].comentarios.push(comentario);
+      renderTimeline();
+    }
+  }
 </script>
+
 </body>
 </html>
