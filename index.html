@@ -1,105 +1,53 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Aghatta XV ✨</title>
-<link rel="stylesheet" href="style.css"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aghatta XV ✨</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header>
+    <h1>Aghatta XV</h1>
+  </header>
 
-<header class="card flex justify-between items-center p-4 sticky top-0 z-20">
-  <h1 class="text-xl font-semibold">Aghatta XV</h1>
-  <button onclick="window.scrollTo({top:0, behavior:'smooth'})">Topo</button>
-</header>
+  <main>
+    <!-- Formulário de post -->
+    <section id="post-section">
+      <h2>Compartilhe sua memória ✨</h2>
+      <form id="postForm">
+        <input type="text" id="authorInput" placeholder="Seu nome" required>
+        <textarea id="captionInput" placeholder="Deixe uma frase carinhosa…"></textarea>
+        <input type="file" id="fileInput" accept="image/*,video/*" required>
+        <button type="submit">Postar</button>
+        <span id="uploadStatus"></span>
+      </form>
+      <div id="preview">Prévia: sem mídia</div>
+    </section>
 
-<main class="max-w-4xl mx-auto p-4 space-y-6">
+    <!-- Feed -->
+    <section id="feed-section">
+      <h2>Feed ao vivo 📸</h2>
+      <div id="feed"></div>
+      <div id="emptyFeed">Seja o(a) primeiro(a) a postar ✨</div>
+    </section>
 
-  <!-- Formulário postar -->
-  <section class="card p-4">
-    <h2 class="text-lg font-semibold mb-3">Compartilhe sua memória ✨</h2>
-    <form id="postForm" class="grid sm:grid-cols-2 gap-4">
-      <div class="space-y-3">
-        <input id="authorInput" type="text" placeholder="Seu nome" required />
-        <textarea id="captionInput" placeholder="Legenda..."></textarea>
-        <input id="fileInput" type="file" accept="image/*,video/*" required />
-        <div class="flex items-center gap-3">
-          <button id="postBtn" type="submit">Postar</button>
-          <span id="uploadStatus"></span>
-        </div>
-      </div>
-      <div class="preview" id="preview">Sem mídia</div>
-    </form>
-  </section>
+    <!-- Recados admin -->
+    <section id="notice-section">
+      <h2>Recados do coração 💛</h2>
+      <form id="noticeForm">
+        <input type="text" id="noticeAuthor" placeholder="Quem está anunciando?">
+        <input type="text" id="noticeText" placeholder="Escreva um recado para todos…">
+        <button type="submit">Publicar</button>
+      </form>
+      <ul id="noticesList"></ul>
+    </section>
+  </main>
 
-  <!-- Feed -->
-  <section>
-    <h2 class="text-lg font-semibold mb-3">Feed 📸</h2>
-    <div id="feed" class="grid md:grid-cols-2 gap-4"></div>
-    <div id="emptyFeed" class="text-center opacity-70 mt-6 hidden">Seja o(a) primeiro(a) a postar ✨</div>
-  </section>
+  <footer>
+    Feito com carinho para a Aghatta • <span class="gold">azul & dourado</span>
+  </footer>
 
-</main>
-
-<footer>Feito com carinho • <span class="gold">azul & dourado</span></footer>
-
-<script type="module">
-import { postMedia, observeFeed, likePost, fmt } from './firebase.js';
-
-const postForm = document.getElementById('postForm');
-const authorInput = document.getElementById('authorInput');
-const captionInput = document.getElementById('captionInput');
-const fileInput = document.getElementById('fileInput');
-const postBtn = document.getElementById('postBtn');
-const uploadStatus = document.getElementById('uploadStatus');
-const preview = document.getElementById('preview');
-const feed = document.getElementById('feed');
-const emptyFeed = document.getElementById('emptyFeed');
-
-fileInput.addEventListener('change', ()=>{
-  const f = fileInput.files?.[0];
-  if(!f){ preview.textContent='Sem mídia'; return; }
-  const url = URL.createObjectURL(f);
-  preview.innerHTML = f.type.startsWith('video/')
-    ? `<video src="${url}" class="w-full h-full object-cover rounded-md" controls></video>`
-    : `<img src="${url}" class="w-full h-full object-cover rounded-md" alt="prévia"/>`;
-});
-
-postForm.addEventListener('submit', async e=>{
-  e.preventDefault();
-  const file = fileInput.files?.[0];
-  const author = authorInput.value.trim();
-  const caption = captionInput.value.trim();
-  if(!file||!author) return;
-  postBtn.disabled = true;
-  uploadStatus.textContent='Enviando…';
-  await postMedia(file, author, caption, status => uploadStatus.textContent=status);
-  postForm.reset();
-  preview.textContent='Sem mídia';
-  postBtn.disabled=false;
-});
-
-function renderPost(p){
-  const liked = localStorage.getItem('like_'+p.id)==='1';
-  const media = p.type==='video'
-    ? `<video src="${p.url}" class="w-full rounded-md" controls></video>`
-    : `<img src="${p.url}" alt="post" class="w-full rounded-md"/>`;
-  return `<article class="card p-3" id="post_${p.id}">
-    <header class="flex justify-between text-sm opacity-80">
-      <div>👤 <strong>${p.author}</strong></div>
-      <div>${fmt(p.createdAt)}</div>
-    </header>
-    <div>${media}</div>
-    ${p.caption?`<p>${p.caption}</p>`:''}
-    <button onclick="likePost('${p.id}')" class="${liked?'bg-pink-700':'bg-pink-600'} rounded-md px-2 py-1 mt-1">❤️ ${p.likes||0}</button>
-  </article>`;
-}
-
-observeFeed(posts=>{
-  emptyFeed.classList.toggle('hidden', posts.length>0);
-  feed.innerHTML=posts.map(renderPost).join('');
-});
-</script>
-
+  <script type="module" src="firebase.js"></script>
 </body>
 </html>
