@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mural - Aghatta XV</title>
+<link rel="stylesheet" href="style.css">
+<script type="module" src="firebase.js"></script>
+<script type="module" src="posts.js"></script>
+</head>
+<body>
+<h1>Aghatta XV - Mural de Recados</h1>
+<div id="formulario">
+  <textarea id="legenda" placeholder="Escreva um recado..."></textarea>
+  <button onclick="postar(true)">Postar Recado</button>
+  <button onclick="window.location.href='feed.html'">Voltar ao Feed</button>
+</div>
+<div id="feed"></div>
+</body>
+</html>
