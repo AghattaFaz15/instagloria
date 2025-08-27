@@ -16,6 +16,7 @@ body {
 .card{backdrop-filter: blur(8px); background: rgba(10,14,30,.6); border-radius:1rem; padding:1rem; margin-bottom:1rem;}
 button{cursor:pointer;}
 textarea,input{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.1); border-radius:0.75rem; padding:0.5rem; color:#fff; width:100%;}
+a{color:#D4AF37;}
 </style>
 </head>
 <body class="min-h-screen">
@@ -31,7 +32,7 @@ textarea,input{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,2
 <form id="postForm" class="space-y-3">
 <input id="authorInput" type="text" placeholder="Seu nome" required />
 <textarea id="captionInput" placeholder="Legenda (opcional)"></textarea>
-<input id="fileInput" type="file" accept="image/*,video/*" />
+<input id="fileInput" type="file" accept="image/*,video/*" required/>
 <button type="submit" id="postBtn" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl gold">Postar</button>
 <div id="uploadStatus" class="text-sm mt-1"></div>
 <div id="preview" class="mt-2 aspect-video w-full bg-black/20 rounded-md grid place-items-center text-sm">Sem mídia</div>
@@ -46,25 +47,7 @@ textarea,input{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,2
 Feito com carinho para a Aghatta • <span class="gold">azul & dourado</span>
 </footer>
 
-<!-- Firebase + Cloudinary -->
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
-import { getDatabase, ref, push, set, onValue, query, limitToLast } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
-
-// --- FIREBASE CONFIG ---
-const firebaseConfig = {
-  apiKey: "AIzaSyCWq5k87voGQHlRPquvI1P5W1eme32E5f4",
-  authDomain: "livro-aghatta.firebaseapp.com",
-  databaseURL: "https://livro-aghatta-default-rtdb.firebaseio.com",
-  projectId: "livro-aghatta",
-  storageBucket: "livro-aghatta.appspot.com",
-  messagingSenderId: "491625108244",
-  appId: "1:491625108244:web:3afdfda239f9d0904ca801"
-};
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-// --- CLOUDINARY CONFIG ---
+<script>
 const cloudName = 'dxobnhynf';
 const uploadPreset = 'Default';
 
@@ -76,7 +59,7 @@ const uid = (() => {
   return v;
 })();
 
-// --- Preview ---
+// Preview
 const fileInput = document.getElementById('fileInput');
 const preview = document.getElementById('preview');
 fileInput.addEventListener('change', ()=>{
@@ -89,7 +72,7 @@ fileInput.addEventListener('change', ()=>{
     : `<img src="${url}" class="w-full h-full object-cover rounded-md" alt="prévia"/>`;
 });
 
-// --- Postar ---
+// Postar
 const postForm = document.getElementById('postForm');
 const authorInput = document.getElementById('authorInput');
 const captionInput = document.getElementById('captionInput');
@@ -99,57 +82,58 @@ const feed = document.getElementById('feed');
 const emptyFeed = document.getElementById('emptyFeed');
 
 function escapeHtml(str=''){return str.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));}
-function linkify(text=''){return text.replace(/(https?:\/\/[^\s]+)/g, '<a class="underline" href="$1" target="_blank" rel="noopener">$1</a>');}
+function linkify(text=''){return text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');}
 
 postForm.addEventListener('submit', async e=>{
   e.preventDefault();
   const file = fileInput.files?.[0];
   const author = authorInput.value.trim();
   const caption = captionInput.value.trim();
-  if(!author) return;
+  if(!file || !author) return;
   postBtn.disabled=true;
   uploadStatus.textContent='Enviando…';
   try{
-    let url=null, type='text';
-    if(file){
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', uploadPreset);
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {method:'POST', body:formData});
-      const data = await res.json();
-      if(!data.secure_url) throw new Error('Falha no upload');
-      url = data.secure_url;
-      type = file.type.startsWith('video/')?'video':'image';
-    }
-    const postRef = push(ref(db,'posts'));
-    await set(postRef,{id:postRef.key,author,caption,type,url,likes:0,createdAt:Date.now()});
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {method:'POST', body:formData});
+    const data = await res.json();
+    if(!data.secure_url) throw new Error('Falha no upload');
+    const url = data.secure_url;
+    const type = file.type.startsWith('video/')?'video':'image';
+
+    // Salvar local
+    let posts = JSON.parse(localStorage.getItem('posts')||'[]');
+    posts.unshift({id:Date.now(),author,caption,url,type});
+    localStorage.setItem('posts',JSON.stringify(posts));
+
     postForm.reset();
     preview.textContent='Sem mídia';
     uploadStatus.textContent='Publicado!';
-    setTimeout(()=>uploadStatus.textContent='',1500);
+    renderFeed();
   }catch(err){console.error(err); uploadStatus.textContent='Falhou. Tente novamente.';}
   finally{postBtn.disabled=false;}
 });
 
-// --- Carregar feed ---
-onValue(query(ref(db,'posts'),limitToLast(200)), snap=>{
-  const data = snap.val()||{};
-  const posts = Object.values(data).sort((a,b)=>b.createdAt-a.createdAt);
+function renderFeed(){
+  const posts = JSON.parse(localStorage.getItem('posts')||'[]');
   emptyFeed.classList.toggle('hidden',posts.length>0);
   feed.innerHTML = posts.map(p=>{
-    let media='';
-    if(p.type==='image') media=`<img src="${p.url}" class="w-full rounded-md"/>`;
-    else if(p.type==='video') media=`<video src="${p.url}" class="w-full rounded-md" controls playsinline></video>`;
+    const media = p.type==='video'
+      ? `<video src="${p.url}" class="w-full rounded-md" controls playsinline></video>`
+      : `<img src="${p.url}" class="w-full rounded-md"/>`;
     return `<div class="card">
       <div class="flex justify-between text-sm opacity-80 mb-1">
         <div>👤 <strong>${escapeHtml(p.author)}</strong></div>
-        <div>${new Date(p.createdAt).toLocaleString('pt-BR')}</div>
+        <div>${new Date(p.id).toLocaleString()}</div>
       </div>
       ${media}
       ${p.caption?`<p class="mt-1">${linkify(escapeHtml(p.caption))}</p>`:''}
     </div>`;
   }).join('');
-});
+}
+
+renderFeed();
 </script>
 </body>
 </html>
