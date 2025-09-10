@@ -22,12 +22,12 @@
     position: relative;
   }
 
-  /* Estrelas visíveis e brilhantes */
+  /* Estrelas douradas brilhantes */
   .star {
     position: absolute;
     border-radius: 50%;
-    background: radial-gradient(white, rgba(255,255,255,0));
-    opacity: 0.8;
+    background: radial-gradient(#ffd700, rgba(255,215,0,0));
+    opacity: 0.7;
     animation: twinkle linear infinite alternate;
   }
 
@@ -147,8 +147,8 @@
 
 <div class="grid" id="galeria">
   <div class="item"><img src="imagem.png" alt="Entrada da Festa"></div>
-  <div class="item"><img src="imagem1.png" alt="Mesa do Bolo"></div>
-  <div class="item"><img src="imagem2.png" alt="Dança da Valsa"></div>
+  <div class="item"><img src="imagem1.jpeg" alt="Mesa do Bolo"></div>
+  <div class="item"><img src="logo.png" alt="Dança da Valsa"></div>
   <div class="item"><img src="imagem3.png" alt="Família reunida"></div>
   <div class="item"><img src="imagem4.png" alt="Amigos celebrando"></div>
 </div>
@@ -178,12 +178,12 @@
   closeBtn.onclick = () => modal.style.display = "none";
   window.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; }
 
-  // Criar estrelas brilhantes visíveis
+  // Criar estrelas douradas visíveis
   const numStars = 150;
   for(let i=0;i<numStars;i++){
     const star = document.createElement('div');
     star.classList.add('star');
-    const size = Math.random()*3 + 2; // tamanho maior
+    const size = Math.random()*3 + 2; // tamanho variável
     star.style.width = size + 'px';
     star.style.height = size + 'px';
     star.style.top = Math.random()*100 + '%';
