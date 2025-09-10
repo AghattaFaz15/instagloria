@@ -12,13 +12,15 @@
     body {
       margin: 0;
       font-family: 'Poppins', sans-serif;
-      background: radial-gradient(circle at top, #1a237e, #0d1333);
       color: #fff;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       overflow-x: hidden;
+      background: url('logo.png') no-repeat center center fixed;
+      background-size: cover;
+      position: relative;
     }
 
     /* Fundo cintilante */
@@ -192,7 +194,6 @@
         const novo = prompt("Edite a legenda:", atual);
         if (novo !== null) {
           leg.innerText = novo;
-          // Atualiza também o alt da imagem para o modal
           leg.previousElementSibling.alt = novo;
         }
       });
